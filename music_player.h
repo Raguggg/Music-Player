@@ -3,20 +3,15 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_mixer.h>
+#include <pthread.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-// MusicPlayer structure definition
 typedef struct {
-    char* sound_path;
+    char *sound_path;
     Mix_Music *music;
+    float duration;
     int volume;
     int status;
-    int position;
-    long ticks;
-    float duration;
+    float position;
 } MusicPlayer;
 
 // Function declarations
@@ -35,8 +30,7 @@ float get_position(const MusicPlayer *player);
 void set_position(MusicPlayer *player, int position);
 float get_duration(const MusicPlayer *player);
 
-#ifdef __cplusplus
-}
-#endif
+// Thread management
+void *play_music_thread(void *arg);
 
 #endif // MUSIC_PLAYER_H

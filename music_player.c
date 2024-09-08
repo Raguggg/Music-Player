@@ -9,12 +9,17 @@ static long music_pos_time = -1;
 static int music_frequency = 0;
 static Uint16 music_format = 0;
 static int music_channels = 0;
+static pthread_mutex_t music_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_t music_thread;
+static int music_thread_running = 0;
 
 // Callback function for music position tracking
 static void mixmusic_callback(void *udata, Uint8 *stream, int len) {
     if (!Mix_PausedMusic()) {
+        pthread_mutex_lock(&music_mutex);
         music_pos += len;
         music_pos_time = SDL_GetTicks();
+        pthread_mutex_unlock(&music_mutex);
     }
 }
 
@@ -38,7 +43,6 @@ void cleanup_music_player() {
 }
 
 void load_music(MusicPlayer *player, const char *sound_path) {
-    printf("Loading music: %s\n", sound_path);
     player->sound_path = strdup(sound_path);
     player->music = Mix_LoadMUS(player->sound_path);
     if (!player->music) {
@@ -72,17 +76,46 @@ float get_media_duration(const MusicPlayer *player) {
     return song_length;
 }
 
-void play_music(MusicPlayer *player) {
+void *play_music_thread(void *arg) {
+    MusicPlayer *player = (MusicPlayer *)arg;
     Mix_SetPostMix(mixmusic_callback, NULL);
     Mix_QuerySpec(&music_frequency, &music_format, &music_channels);
     player->duration = get_media_duration(player);
     Mix_PlayMusic(player->music, 1);
+    player->status = 1;
+    printf("Playing music\n");
     while (Mix_PlayingMusic()) {
         SDL_Delay(1000);
+
+        // pthread_mutex_lock(&music_mutex);
         if (get_position(player) >= get_duration(player)) {
-            stop_music(player);
+            player->status = 0;
+            Mix_HaltMusic();
         }
+        // pthread_mutex_unlock(&music_mutex);
     }
+    player->status = 0;
+    music_thread_running = 0;
+    return NULL;
+}
+
+void play_music(MusicPlayer *player) {
+    if (music_thread_running) {
+        fprintf(stderr, "Music thread is already running.\n");
+        return;
+    }
+    music_thread_running = 1;
+    if (pthread_create(&music_thread, NULL, play_music_thread, (void *)player) != 0) {
+        fprintf(stderr, "Failed to create music thread.\n");
+        music_thread_running = 0;
+        
+        
+    }
+    while (player->status == 0)
+        {
+            /* code */
+        }
+    printf("Music thread created\n");
 }
 
 void pause_music(MusicPlayer *player) {
@@ -112,12 +145,13 @@ int get_status(const MusicPlayer *player) {
 
 float get_position(const MusicPlayer *player) {
     long ticks;
+    pthread_mutex_lock(&music_mutex);
     ticks = (long)(1000 * music_pos /
                     (music_channels * music_frequency *
                         ((music_format & 0xff) >> 3)));
     if (!Mix_PausedMusic())
         ticks += SDL_GetTicks() - music_pos_time;
-
+    pthread_mutex_unlock(&music_mutex);
     return (float)ticks / 1000;
 }
 
