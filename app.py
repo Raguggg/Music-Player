@@ -95,7 +95,7 @@ def get_duration(player):
 if __name__ == '__main__':
     player = MusicPlayer()
     initialize_player()
-    load_music(player, "/media/ragu/Ragu G/Users/91759/Music/IV_songs/Madura-Palapalakkuthu-MassTamilan.org.mp3")
+    load_music(player, "song.mp3")
     play_music(player)
     print(get_song_length(player))
     print(get_media_duration(player))

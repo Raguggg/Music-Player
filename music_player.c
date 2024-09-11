@@ -23,7 +23,6 @@ static void mixmusic_callback(void *udata, Uint8 *stream, int len) {
     }
 }
 
-// Function definitions
 int initialize_music_player() {
     if (SDL_Init(SDL_INIT_AUDIO) < 0) {
         fprintf(stderr, "SDL_Init Error: %s\n", SDL_GetError());
@@ -38,13 +37,32 @@ int initialize_music_player() {
 }
 
 void cleanup_music_player() {
+    Mix_HaltMusic(); // Ensure music is stopped
     Mix_CloseAudio();
     SDL_Quit();
 }
 
+void reset_music_player() {
+    pthread_mutex_lock(&music_mutex);
+    music_pos = 0;
+    music_pos_time = -1;
+    music_frequency = 0;
+    music_format = 0;
+    music_channels = 0;
+    pthread_mutex_unlock(&music_mutex);
+}
+
 void load_music(MusicPlayer *player, const char *sound_path) {
     player->sound_path = strdup(sound_path);
+    printf("Loading music: %s\n", player->sound_path);
+    
+    if (player->music) {
+        // Mix_FreeMusic(player->music);
+        printf("Music already loaded and freed\n");
+    }
+    printf("Loading music\n");
     player->music = Mix_LoadMUS(player->sound_path);
+    printf("Loaded music msg: %s\n", Mix_GetError());
     if (!player->music) {
         fprintf(stderr, "Failed to load music: %s\n", Mix_GetError());
     }
@@ -54,11 +72,11 @@ float get_song_length(Mix_Chunk *chunk) {
     int mixerbytes, numsamples;
 
     if (music_format == AUDIO_S8 || music_format == AUDIO_U8)
-        mixerbytes = 1; // 8-bit audio
+        mixerbytes = 1;
     else if (music_format == AUDIO_F32LSB || music_format == AUDIO_F32MSB)
-        mixerbytes = 4; // 32-bit float audio
+        mixerbytes = 4;
     else
-        mixerbytes = 2; // 16-bit audio or others
+        mixerbytes = 2;
 
     numsamples = chunk->alen / mixerbytes / music_channels;
     return (float)numsamples / (float)music_frequency;
@@ -86,13 +104,11 @@ void *play_music_thread(void *arg) {
     printf("Playing music\n");
     while (Mix_PlayingMusic()) {
         SDL_Delay(1000);
-
-        // pthread_mutex_lock(&music_mutex);
         if (get_position(player) >= get_duration(player)) {
             player->status = 0;
             Mix_HaltMusic();
+            player->music = NULL;
         }
-        // pthread_mutex_unlock(&music_mutex);
     }
     player->status = 0;
     music_thread_running = 0;
@@ -108,13 +124,11 @@ void play_music(MusicPlayer *player) {
     if (pthread_create(&music_thread, NULL, play_music_thread, (void *)player) != 0) {
         fprintf(stderr, "Failed to create music thread.\n");
         music_thread_running = 0;
-        
-        
+        return;
     }
-    while (player->status == 0)
-        {
-            /* code */
-        }
+    while (player->status == 0) {
+        SDL_Delay(100);
+    }
     printf("Music thread created\n");
 }
 
@@ -127,7 +141,12 @@ void resume_music(MusicPlayer *player) {
 }
 
 void stop_music(MusicPlayer *player) {
+    // this function helps to stop the music
+    // so we can play the next song
     Mix_HaltMusic();
+    // delete the thread
+    pthread_cancel(music_thread);
+    music_thread_running = 0;
 }
 
 void set_volume(MusicPlayer *player, int volume) {

@@ -5,6 +5,10 @@
 #include <SDL2/SDL_mixer.h>
 #include <pthread.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
     char *sound_path;
     Mix_Music *music;
@@ -29,8 +33,13 @@ int get_status(const MusicPlayer *player);
 float get_position(const MusicPlayer *player);
 void set_position(MusicPlayer *player, int position);
 float get_duration(const MusicPlayer *player);
+void reset_music_player();
 
 // Thread management
 void *play_music_thread(void *arg);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // MUSIC_PLAYER_H

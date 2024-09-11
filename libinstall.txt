@@ -1,0 +1,8 @@
+sudo apt-get install libgtk-4-dev
+// uninstall cmd
+sudo apt-get remove libgtk-4-dev && sudo apt-get autoremove
+
+sudo apt-get install libfltk1.3-dev
+
+
+sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
